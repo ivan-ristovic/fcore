@@ -25,7 +25,7 @@ source-repository head
 
 library
   exposed-modules:
-      Lib
+      Core.Language
   other-modules:
       Paths_fcore
   autogen-modules:
