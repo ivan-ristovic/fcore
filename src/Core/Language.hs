@@ -73,3 +73,6 @@ isCompound (ENum _)      = False
 isCompound (EVar _)      = False
 isCompound (EConstr _ _) = False
 isCompound _             = True
+
+getScDefnExpr :: CoreScDefn -> CoreExpr
+getScDefnExpr (_, _, e) = e

@@ -1,10 +1,15 @@
 import Core.Tests.Parser
+import Core.Tests.Printer
+import Test.Tasty
+import Test.Tasty.HUnit
 
 main :: IO ()
-main = do
-    putStrLn ""
-    putStrLn "Running tests..."
-    parserTests
-    putStrLn "Tests finished."
+main = 
+    defaultMain 
+        ( testGroup "Core Language Tests" 
+          (  printerTests
+          ++ parserTests
+          )
+        )
 
 

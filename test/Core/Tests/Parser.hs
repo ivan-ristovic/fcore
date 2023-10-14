@@ -1,6 +1,8 @@
 module Core.Tests.Parser (parserTests) where
 
-parserTests :: IO ()
-parserTests = do
-    putStrLn "Running parser tests..."
+import Test.Tasty
+import Test.Tasty.HUnit
+
+parserTests :: [TestTree]
+parserTests = []
 

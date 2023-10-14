@@ -27,6 +27,7 @@ library
   exposed-modules:
       Core.Language
       Core.Prelude
+      Core.Printer
       Core.Utils
   other-modules:
       Paths_fcore
@@ -58,6 +59,7 @@ test-suite fcore-test
   main-is: Spec.hs
   other-modules:
       Core.Tests.Parser
+      Core.Tests.Printer
       Paths_fcore
   autogen-modules:
       Paths_fcore
@@ -67,4 +69,6 @@ test-suite fcore-test
   build-depends:
       base >=4.7 && <5
     , fcore
+    , tasty
+    , tasty-hunit
   default-language: Haskell2010
