@@ -1,2 +1,10 @@
+import Core.Tests.Parser
+
 main :: IO ()
-main = putStrLn "Test suite not yet implemented"
+main = do
+    putStrLn ""
+    putStrLn "Running tests..."
+    parserTests
+    putStrLn "Tests finished."
+
+
