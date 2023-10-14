@@ -4,7 +4,6 @@ A Haskell implementation of the Core functional programming language from SPJ's 
 
 ## Core language overview
 
-### Programs
 A Core language program is a set of *supercombinator definitions*, with an entry point named `main`, e.g.:
 ```hs
 main = double 21
@@ -18,6 +17,8 @@ quadruple x = let twice_x = x + x
 infinite n = letrec ns = ons n ns
              in ns
 ```
+
+![bnf](./docs/images/bnf.png)
 
 ### Lambdas
 ```hs
@@ -89,5 +90,4 @@ depth t = case t of
 | 1          | Right        | \|              |
 
 *Note*: Unary `-` is provided via the `negate` function.
-
 
