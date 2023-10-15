@@ -10,7 +10,7 @@ pprint :: CoreProgram -> String
 pprint = render . fsep . programToDoc
 
 
--- Core constructs Doc converters
+-- Doc converters for Core constructs
 
 programToDoc :: CoreProgram -> [Doc]
 programToDoc = map scDefToDoc
@@ -59,6 +59,7 @@ defsToDoc= vcat . punctuate semi . map defToDoc
 defToDoc :: (Name, CoreExpr) -> Doc
 defToDoc (name, expr) = scDefToDoc (name, [], expr)
 
+
 -- Helpers
 
 parenIf :: Bool -> (Doc -> Doc)
@@ -67,6 +68,6 @@ parenIf False = id
 
 binaryOps :: [(String, Int)]
 binaryOps = 
-    [("*", 1), ("/", 1), ("+", 2), ("-", 2)] ++
+    [(opAmul, 1), (opAdiv, 1), (opAadd, 2), (opAsub, 2)] ++
     map (\op -> (op, 3)) relationalOps ++
-    [("&", 4), ("|",5)]
+    [(opLand, 4), (opLor,5)]
