@@ -11,11 +11,9 @@ testPrefix = "Tests.Printer."
 
 
 printerTests :: [TestTree]
-printerTests = 
-    testPrintBuiltins 
+printerTests = testPrintBuiltins 
+            ++ testPrintLet
 
-
--- Expressions
 
 testPrintBuiltins :: [TestTree]
 testPrintBuiltins = [test_I, test_K, test_K1, test_S, test_compose]
@@ -39,4 +37,25 @@ test_S = testCase (testPrefix ++ "test_S")
 test_compose :: TestTree
 test_compose = testCase (testPrefix ++ "test_compose")
     (assertEqual "compose builtin" "compose f g x = f (g x)" (pprint [builtinCompose]))
+
+
+testPrintLet :: [TestTree]
+testPrintLet = [test_letSimple] -- [test_letSimple, test_letComplex, test_caseof, test_lambda]
+
+test_letSimple :: TestTree
+test_letSimple = testCase (testPrefix ++ "test_letSimple")
+    (assertEqual "simple let" "f = let twice = x * x\n     in twice x" (pprint simpleLet))
+    where simpleLet = [("f", [], letExpr)] 
+          letExpr   = ELet False defs body
+          defs      = [("twice", EAp (EAp (EVar opAmul) (EVar "x")) (EVar "x"))]
+          body      = EAp (EVar "twice") (EVar "x")
+
+test_letComplex :: TestTree
+test_letComplex = undefined
+
+test_caseof :: TestTree
+test_caseof = undefined
+
+test_lambda :: TestTree
+test_lambda = undefined
 

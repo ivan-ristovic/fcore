@@ -15,7 +15,7 @@ Supercombinators can have local definitions via `let` (non-recursive) and `letre
 quadruple x = let twice_x = x + x
                in twice_x + twice_x
 infinite n = letrec ns = ons n ns
-             in ns
+                 in ns
 ```
 
 ![bnf](./docs/images/bnf.png)
