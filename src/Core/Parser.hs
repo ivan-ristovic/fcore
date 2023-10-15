@@ -9,7 +9,7 @@ import Data.Functor
 import Text.Parsec hiding (spaces)
 import Text.Parsec.Language
 import qualified Text.Parsec.Token as PT
-import qualified Text.Parsec.Expr as P
+import qualified Text.Parsec.Expr as PE
 import Text.Parsec.String (Parser())
 
 import Core.Language
@@ -47,7 +47,7 @@ operator   = PT.operator coreLexer
 spaces     = PT.whiteSpace coreLexer
 semi       = PT.semi coreLexer
 
-binary op = P.Infix e P.AssocLeft 
+binary op = PE.Infix e PE.AssocLeft 
     where e = do o <- symbol op
                  return (\x y -> EAp (EAp (EVar o) x) y)
 
@@ -68,7 +68,7 @@ pScDef = do
 pExpr :: Parser CoreExpr
 pExpr = choice [pLet, pCase, pLam, expr1] 
   where 
-    expr1 = P.buildExpressionParser table term
+    expr1 = PE.buildExpressionParser table term
     table = [ map binary [opAmul, opAdiv]
             , map binary [opAadd, opAsub]
             , map binary relationalOps

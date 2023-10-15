@@ -17,7 +17,7 @@ parserTests = [ test_sample_I
               , test_sample_arithm
               ] 
 
-src_dir = "samples/"
+srcDir = "samples/"
 
 testParseFile :: FilePath -> CoreProgram -> Assertion
 testParseFile path expected = do
@@ -28,7 +28,7 @@ test_sample_I :: TestTree
 test_sample_I = testCase (testPrefix ++ src)
     (testParseFile src    
         [ ("main", [], EAp (EVar "I") (ENum 3)) ] 
-    ) where src = src_dir ++ "i.fc"
+    ) where src = srcDir ++ "i.fc"
         
 test_sample_id :: TestTree
 test_sample_id = testCase (testPrefix ++ src)
@@ -36,7 +36,7 @@ test_sample_id = testCase (testPrefix ++ src)
         [ ("id"  , [], EAp (EAp (EVar "S") (EVar "K")) (EVar "K"))
         , ("main", [], EAp (EVar "id") (ENum 3))
         ]
-    ) where src = src_dir ++ "id.fc"
+    ) where src = srcDir ++ "id.fc"
     
 test_sample_id_twice :: TestTree
 test_sample_id_twice = testCase (testPrefix ++ src)
@@ -44,19 +44,19 @@ test_sample_id_twice = testCase (testPrefix ++ src)
         [ ("id"  , [], EAp (EAp (EVar "S") (EVar "K")) (EVar "K"))
         , ("main", [], EAp (EAp (EAp (EAp (EVar "twice") (EVar "twice")) (EVar "twice")) (EVar "id")) (ENum 3))
         ] 
-    ) where src = src_dir ++ "id_twice.fc"
+    ) where src = srcDir ++ "id_twice.fc"
 
 test_sample_updating :: TestTree
 test_sample_updating = testCase (testPrefix ++ src)
     (testParseFile src
         [ ("main", [], EAp (EAp (EVar "twice") (EAp (EAp (EVar "I") (EVar "I")) (EVar "I"))) (ENum 3)) ] 
-    ) where src = src_dir ++ "updating.fc"
+    ) where src = srcDir ++ "updating.fc"
 
 test_sample_arithm :: TestTree
 test_sample_arithm = testCase (testPrefix ++ src)
     (testParseFile src
         [ ("main", [], EAp (EAp (EVar "twice") (EAp (EAp (EVar "I") (EVar "I")) (EVar "I"))) (ENum 3)) ] 
-    ) where src = src_dir ++ "arithm.fc"
+    ) where src = srcDir ++ "arithm.fc"
 
 
 
