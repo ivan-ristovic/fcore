@@ -118,5 +118,5 @@ pExpr = choice [pLet, pCase, pLam, expr1]
 
     pAexpr = spaces *> choice [pVar, pNum, pCtor, parens pExpr] <* spaces
 
-    pNum  = ENum <$> integer
+    pNum  = ENum <$> int
     pVar  = EVar <$> identifier

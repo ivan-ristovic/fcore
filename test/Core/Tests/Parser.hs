@@ -55,7 +55,7 @@ test_sample_updating = testCase (testPrefix ++ src)
 test_sample_arithm :: TestTree
 test_sample_arithm = testCase (testPrefix ++ src)
     (testParseFile src
-        [ ("main", [], EAp (EAp (EVar "twice") (EAp (EAp (EVar "I") (EVar "I")) (EVar "I"))) (ENum 3)) ] 
+        [ ("main", [], EAp (EAp (EVar "+") (EAp (EAp (EVar "*") (ENum 4)) (ENum 5))) (EAp (EAp (EVar "-") (ENum 2)) (ENum 5))) ]
     ) where src = srcDir ++ "arithm.fc"
 
 

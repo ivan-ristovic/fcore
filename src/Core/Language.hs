@@ -27,7 +27,7 @@ type CoreScDef = ScDef Name
 
 -- Expressions
 data Expr a = EVar Name               -- Variables
-            | ENum Integer            -- Numbers
+            | ENum Int                -- Numbers
             | ECons Int Int           -- Construtor with tag and arity
             | EAp (Expr a) (Expr a)   -- Application
             | ELet                    -- Let(rec) expressions

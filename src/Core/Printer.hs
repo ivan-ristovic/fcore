@@ -27,7 +27,7 @@ varListToDoc :: [Name] -> Doc
 varListToDoc = hsep . map text
 
 exprToDoc :: Int -> CoreExpr -> Doc
-exprToDoc _ (ENum n) = integer n
+exprToDoc _ (ENum n) = int n
 exprToDoc _ (EVar v) = text v
 exprToDoc _ (ECons t ar) = text kwCons <+> braces (int t <> comma <> int ar)
 
