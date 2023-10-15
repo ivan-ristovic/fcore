@@ -35,7 +35,7 @@ data Expr a = EVar Name               -- Variables
                 [(a, Expr a)]         --   Definitions
                 (Expr a)              --   Body
             | ECase                   -- Case expression
-                (Expr a)              --   Expression to  match
+                (Expr a)              --   Expression to match
                 [Alter a]             --   Alternatives
             | ELam [a] (Expr a)       -- Lambda abstractions
             deriving (Show, Eq)

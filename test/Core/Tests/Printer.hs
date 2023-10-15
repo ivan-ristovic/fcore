@@ -9,7 +9,6 @@ import Test.Tasty.HUnit
 testPrefix :: String
 testPrefix = "Tests.Printer."
 
-
 printerTests :: [TestTree]
 printerTests = testPrintBuiltins 
             ++ testPrintLet
@@ -40,7 +39,7 @@ test_compose = testCase (testPrefix ++ "test_compose")
 
 
 testPrintLet :: [TestTree]
-testPrintLet = [test_letSimple, test_letComplex] -- test_caseof, test_lambda]
+testPrintLet = [test_letSimple, test_letComplex, test_caseof, test_lambda]
 
 test_letSimple :: TestTree
 test_letSimple = testCase (testPrefix ++ "test_letSimple")
@@ -55,9 +54,9 @@ test_letComplex = testCase (testPrefix ++ "test_letComplex")
     (assertEqual 
         "complex let" 
         "g = letr p = x * y;\n         s = x + y\n      in p - s" 
-        (pprint simpleLet)
+        (pprint complexLet)
     )
-    where simpleLet = [("g", [], letExpr)] 
+    where complexLet = [("g", [], letExpr)] 
           letExpr   = ELet True defs body
           defs      = [ ("p", EAp (EAp (EVar opAmul) (EVar "x")) (EVar "y"))
                       , ("s", EAp (EAp (EVar opAadd) (EVar "x")) (EVar "y")) 
@@ -65,8 +64,24 @@ test_letComplex = testCase (testPrefix ++ "test_letComplex")
           body      = EAp (EAp (EVar opAsub) (EVar "p")) (EVar "s")
 
 test_caseof :: TestTree
-test_caseof = undefined
+test_caseof = testCase (testPrefix ++ "test_caseof")
+    (assertEqual 
+        "caseof" 
+        "f x = case x of\n        {0} -> x * x;\n        {1} y -> x * y;"
+         (pprint caseof)
+     ) 
+    where caseof     = [("f", ["x"], caseofExpr)] 
+          caseofExpr = ECase toMatch alts 
+          toMatch    = EVar "x"
+          alts       = [ (0, []   , EAp (EAp (EVar opAmul) (EVar "x")) (EVar "x")) 
+                       , (1, ["y"], EAp (EAp (EVar opAmul) (EVar "x")) (EVar "y"))
+                       ]
 
 test_lambda :: TestTree
-test_lambda = undefined
+test_lambda = testCase (testPrefix ++ "test_lambda")
+    (assertEqual "lambda" "f = \\x -> x + 1" (pprint lambda))
+    where lambda     = [("f", [], lambdaExpr)] 
+          lambdaExpr = ELam args body
+          args       = ["x"]
+          body       = EAp (EAp (EVar opAadd) (EVar "x")) (ENum 1)
 

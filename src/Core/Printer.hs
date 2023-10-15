@@ -54,7 +54,7 @@ exprToDoc prec (ECase expr alts) = hang caseof 2 (altsToDoc alts)
                                  <+> text opRArrow <+> exprToDoc prec e <> semi
 
 exprToDoc prec (ELam args body) 
-    = text opLambda <> varListToDoc args <> text opDot <+> exprToDoc prec body
+    = text opLambda <> varListToDoc args <+> text opRArrow <+> exprToDoc prec body
 
 defsToDoc :: [(Name, CoreExpr)] -> Doc
 defsToDoc= vcat . punctuate semi . map defToDoc
