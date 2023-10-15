@@ -12,37 +12,37 @@ preludeDefs
     , builtinTwice
     ]
 
-builtinI :: CoreScDefn
+builtinI :: CoreScDef
 builtinI = ( "I" 
            , ["x"] 
            , EVar "x"
            ) 
 
-builtinK :: CoreScDefn
+builtinK :: CoreScDef
 builtinK = ( "K"
            , ["x","y"]
            , EVar "x"
            ) 
 
-builtinK1 :: CoreScDefn
+builtinK1 :: CoreScDef
 builtinK1 = ( "K1"
             , ["x","y"]
             , EVar "y"
             )
 
-builtinS :: CoreScDefn
+builtinS :: CoreScDef
 builtinS = ( "S"
            , ["f","g","x"]
            , EAp (EAp (EVar "f") (EVar "x")) (EAp (EVar "g") (EVar "x"))
            )
 
-builtinCompose :: CoreScDefn
+builtinCompose :: CoreScDef
 builtinCompose = ( "compose"
                  , ["f","g","x"]
                  , EAp (EVar "f") (EAp (EVar "g") (EVar "x"))
                  )
 
-builtinTwice :: CoreScDefn
+builtinTwice :: CoreScDef
 builtinTwice = ( "twice"
              , ["f"]
              , EAp (EAp (EVar "compose") (EVar "f")) (EVar "f")

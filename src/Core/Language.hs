@@ -18,17 +18,17 @@ module Core.Language where
 type Name = String
 
 -- A core program is a list of supercombinator definitions
-type Program a = [ScDefn a]
+type Program a = [ScDef a]
 type CoreProgram = Program Name
 
 -- A supercombinator (toplevel) definition: name, args, body
-type ScDefn a = (Name, [a], Expr a)
-type CoreScDefn = ScDefn Name
+type ScDef a = (Name, [a], Expr a)
+type CoreScDef = ScDef Name
 
 -- Expressions
 data Expr a = EVar Name               -- Variables
             | ENum Int                -- Numbers
-            | EConstr Int Int         -- Construtor with tag and arity
+            | ECons Int Int           -- Construtor with tag and arity
             | EAp (Expr a) (Expr a)   -- Application
             | ELet                    -- Let(rec) expressions
                 IsRec                 --   Recursive flag
@@ -64,15 +64,60 @@ isAtomicExpr (EVar _) = True
 isAtomicExpr (ENum _) = True
 isAtomicExpr _        = False
 
-isApp :: Expr t -> Bool
-isApp (EAp _ _) = True
-isApp _         = False
+isApExpr :: Expr t -> Bool
+isApExpr (EAp _ _) = True
+isApExpr _         = False
 
-isCompound :: Expr t -> Bool
-isCompound (ENum _)      = False
-isCompound (EVar _)      = False
-isCompound (EConstr _ _) = False
-isCompound _             = True
+isCompoundExpr :: Expr t -> Bool
+isCompoundExpr (ENum _)      = False
+isCompoundExpr (EVar _)      = False
+isCompoundExpr (ECons _ _)   = False
+isCompoundExpr _             = True
 
-getScDefnExpr :: CoreScDefn -> CoreExpr
-getScDefnExpr (_, _, e) = e
+getScDefExpr :: CoreScDef -> CoreExpr
+getScDefExpr (_, _, e) = e
+
+
+-- Tokens
+
+keywords = [kwLetNRec, kwLetRec, kwCase, kwIn, kwCons, kwCons]
+kwLetNRec = "let"
+kwLetRec  = "letr"
+kwCase    = "case"
+kwIn      = "in"
+kwOf      = "of"
+kwCons    = "Cons"
+
+kwLet :: Bool -> String
+kwLet True  = kwLetRec
+kwLet False = kwLetNRec
+
+reservedOps = [opAssign, opComma, opSColon, opLArrow, opRArrow, opLambda, opDot, opLBrace, opRBrace]
+opAssign  = "="
+opComma   = ","
+opSColon  = ";"
+opLArrow  = "<-"
+opRArrow  = "->"
+opLambda  = "\\"
+opDot     = "."
+opLBrace  = "{"
+opRBrace  = "}"
+
+relationalOps = [opReq, opRne, opRlt, opRle, opRgt, opRge]
+opReq = "=="
+opRne = "~="
+opRlt = "<"
+opRle = "<="
+opRgt = ">"
+opRge = ">="
+
+arithmeticOps = [opAadd, opAsub, opAmul, opAdiv]
+opAadd = "+"
+opAsub = "-"
+opAmul = "*"
+opAdiv = "/"
+
+logicOps = [opLand, opLor]
+opLand = "&"
+opLor  = "|"
+
