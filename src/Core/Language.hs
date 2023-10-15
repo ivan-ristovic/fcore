@@ -4,7 +4,7 @@ module Core.Language where
     Input Core program:
     ```
       main = double 21 ;
-      double x = x+x
+      double x = x + x
     ```
     Representation:
     ```
@@ -27,7 +27,7 @@ type CoreScDef = ScDef Name
 
 -- Expressions
 data Expr a = EVar Name               -- Variables
-            | ENum Int                -- Numbers
+            | ENum Integer            -- Numbers
             | ECons Int Int           -- Construtor with tag and arity
             | EAp (Expr a) (Expr a)   -- Application
             | ELet                    -- Let(rec) expressions
@@ -80,7 +80,7 @@ getScDefExpr (_, _, e) = e
 
 -- Tokens
 
-keywords = [kwLetNRec, kwLetRec, kwCase, kwIn, kwCons, kwCons]
+keywords = [kwLetNRec, kwLetRec, kwCase, kwIn, kwOf, kwCons]
 kwLetNRec = "let"
 kwLetRec  = "letr"
 kwCase    = "case"

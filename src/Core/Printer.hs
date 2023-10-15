@@ -1,9 +1,11 @@
+{-# LANGUAGE TupleSections #-}
 module Core.Printer (pprint) where
 
 import Prelude hiding ((<>))
 
-import Core.Language
 import Text.PrettyPrint 
+
+import Core.Language
 
 
 pprint :: CoreProgram -> String
@@ -25,7 +27,7 @@ varListToDoc :: [Name] -> Doc
 varListToDoc = hsep . map text
 
 exprToDoc :: Int -> CoreExpr -> Doc
-exprToDoc _ (ENum n) = int n
+exprToDoc _ (ENum n) = integer n
 exprToDoc _ (EVar v) = text v
 exprToDoc _ (ECons t ar) = text kwCons <+> braces (int t <> comma <> int ar)
 
@@ -40,9 +42,9 @@ exprToDoc prec (EAp e1 e2)
 exprToDoc prec (ELet isRec defs expr) 
     = hang (text (kwLet isRec)) (kwLetSize + 1) (defsToDoc defs) 
    $$ text padLeftKwIn <+> exprToDoc prec expr
-   where padLeftKwIn = (replicate times ' ') ++ kwIn
-         kwLetSize   = (length $ kwLet isRec)
-         times       = kwLetSize - (length kwIn)
+   where padLeftKwIn = replicate times ' ' ++ kwIn
+         kwLetSize   = length $ kwLet isRec
+         times       = kwLetSize - length kwIn
 
 exprToDoc prec (ECase expr alts) = hang caseof 2 (altsToDoc alts)
     where caseof = text kwCase
@@ -72,5 +74,6 @@ parenIf False = id
 binaryOps :: [(String, Int)]
 binaryOps = 
     [(opAmul, 1), (opAdiv, 1), (opAadd, 2), (opAsub, 2)] ++
-    map (\op -> (op, 3)) relationalOps ++
+    map (, 3) relationalOps ++
     [(opLand, 4), (opLor,5)]
+

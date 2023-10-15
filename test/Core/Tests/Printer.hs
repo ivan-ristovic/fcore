@@ -1,10 +1,11 @@
 module Core.Tests.Printer (printerTests) where
 
+import Test.Tasty
+import Test.Tasty.HUnit
+
 import Core.Language
 import Core.Prelude
 import Core.Printer
-import Test.Tasty
-import Test.Tasty.HUnit
 
 testPrefix :: String
 testPrefix = "Tests.Printer."
