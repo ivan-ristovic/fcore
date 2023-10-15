@@ -26,6 +26,7 @@ source-repository head
 library
   exposed-modules:
       Core.Language
+      Core.Parser
       Core.Prelude
       Core.Printer
       Core.Utils
@@ -38,6 +39,7 @@ library
   ghc-options: -Wall -Wcompat -Widentities -Wincomplete-record-updates -Wincomplete-uni-patterns -Wmissing-home-modules -Wpartial-fields -Wredundant-constraints -fno-warn-missing-signatures
   build-depends:
       base >=4.7 && <5
+    , parsec >=3.1
     , pretty >=1.1.3.6
   default-language: Haskell2010
 
@@ -53,6 +55,7 @@ executable fcore-exe
   build-depends:
       base >=4.7 && <5
     , fcore
+    , parsec >=3.1
     , pretty >=1.1.3.6
   default-language: Haskell2010
 
@@ -71,6 +74,7 @@ test-suite fcore-test
   build-depends:
       base >=4.7 && <5
     , fcore
+    , parsec >=3.1
     , pretty >=1.1.3.6
     , tasty
     , tasty-hunit
