@@ -40,7 +40,7 @@ test_compose = testCase (testPrefix ++ "test_compose")
 
 
 testPrintLet :: [TestTree]
-testPrintLet = [test_letSimple] -- [test_letSimple, test_letComplex, test_caseof, test_lambda]
+testPrintLet = [test_letSimple, test_letComplex] -- test_caseof, test_lambda]
 
 test_letSimple :: TestTree
 test_letSimple = testCase (testPrefix ++ "test_letSimple")
@@ -51,7 +51,18 @@ test_letSimple = testCase (testPrefix ++ "test_letSimple")
           body      = EAp (EVar "twice") (EVar "x")
 
 test_letComplex :: TestTree
-test_letComplex = undefined
+test_letComplex = testCase (testPrefix ++ "test_letComplex")
+    (assertEqual 
+        "complex let" 
+        "g = letr p = x * y;\n         s = x + y\n      in p - s" 
+        (pprint simpleLet)
+    )
+    where simpleLet = [("g", [], letExpr)] 
+          letExpr   = ELet True defs body
+          defs      = [ ("p", EAp (EAp (EVar opAmul) (EVar "x")) (EVar "y"))
+                      , ("s", EAp (EAp (EVar opAadd) (EVar "x")) (EVar "y")) 
+                      ]
+          body      = EAp (EAp (EVar opAsub) (EVar "p")) (EVar "s")
 
 test_caseof :: TestTree
 test_caseof = undefined

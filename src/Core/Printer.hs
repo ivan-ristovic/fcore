@@ -38,10 +38,11 @@ exprToDoc prec (EAp e1 e2)
    <+> parenIf (isCompoundExpr e2)                      (exprToDoc (prec + 1) e2)
 
 exprToDoc prec (ELet isRec defs expr) 
-    = hang (text (kwLet isRec)) 3 (defsToDoc defs) 
+    = hang (text (kwLet isRec)) (kwLetSize + 1) (defsToDoc defs) 
    $$ text padLeftKwIn <+> exprToDoc prec expr
    where padLeftKwIn = (replicate times ' ') ++ kwIn
-         times       = (length $ kwLet isRec) - (length kwIn)
+         kwLetSize   = (length $ kwLet isRec)
+         times       = kwLetSize - (length kwIn)
 
 exprToDoc prec (ECase expr alts) = hang caseof 2 (altsToDoc alts)
     where caseof = text kwCase
