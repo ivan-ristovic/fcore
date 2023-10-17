@@ -28,28 +28,28 @@ Please look at the examples or tests for up-to-date syntax.
 
 ### Lambdas
 ```hs
-double_list xs = map (\ x . 2*x) xs
+double_list xs = map (\ x -> 2*x) xs
 ```
 
 ### Data types
 Data types are represented uniformly with a family of constructors:
 ```hs
-Pack{tag,arity}
+Cons{tag,arity}
 ```
 
 For example:
 ```
-Red = Pack{1,0}
-Green = Pack{2,0}
-Blue = Pack{3,0}
+Red = Cons{1,0}
+Green = Cons{2,0}
+Blue = Cons{3,0}
 
-Rect = Pack{4,2}
-Polar = Pack{5,2}
+Rect = Cons{4,2}
+Polar = Cons{5,2}
 
-Leaf = Pack{6,1}
-Branch = Pack{7,2}
+Leaf = Cons{6,1}
+Branch = Cons{7,2}
 
-MkNumPair = Pack{8,2}
+MkNumPair = Cons{8,2}
 ```
 
 So, in Core, instead of:
@@ -58,29 +58,29 @@ Branch (Leaf 3) (Leaf 4)
 ```
 one would write:
 ```hs
-Pack{7,2} (Pack{6,1} 3) (Pack{6,1} 4)
+Cons{7,2} (Cons{6,1} 3) (Cons{6,1} 4)
 ```
 
-This, of course, is easily extendable to actual type names through a map of types to `Pack`s, but this is just an implementation detail.
+This, of course, is easily extendable to actual type names through a map of types to `Cons`s, but this is just an implementation detail.
 
 ### Pattern matching
 Patern matching is performed via the `case` expression that takes a tag and an arbitrary number of arguments:
 ```hs
-Red = Pack{1,0}
-Green = Pack{2,0}
-Blue = Pack{3,0}
+Red = Cons{1,0}
+Green = Cons{2,0}
+Blue = Cons{3,0}
 
 isRed c = case c of
-    <1> -> True ;
-    <2> -> False ;
-    <3> -> False
+    {1} -> True ;
+    {2} -> False ;
+    {3} -> False
 
-Leaf = Pack{1,1}
-Branch = Pack{2,2}
+Leaf = Cons{1,1}
+Branch = Cons{2,2}
 
 depth t = case t of
-    <1> n -> 0 ;
-    <2> t1 t2 -> 1 + max (depth t1) (depth t2)
+    {1} n -> 0 ;
+    {2} t1 t2 -> 1 + max (depth t1) (depth t2)
 ```
 
 ### Operators
