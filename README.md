@@ -23,6 +23,7 @@ infinite n = letrec ns = ons n ns
 **Note:** I modified the language syntax somewhat to fit my personal style. Some modifications include:
 - Lambdas (from `\x. x+1` to `\x -> x + 1`)
 - Case alternatives (from `<0> -> ...` to `{0} -> ...`)
+
 Please look at the examples or tests for up-to-date syntax.
 
 ### Lambdas
