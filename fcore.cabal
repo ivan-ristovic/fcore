@@ -29,6 +29,7 @@ library
       Core.Parser
       Core.Prelude
       Core.Printer
+      Core.Template
       Core.Utils
   other-modules:
       Paths_fcore
@@ -63,6 +64,7 @@ test-suite fcore-test
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      Core.Tests.Heap
       Core.Tests.Parser
       Core.Tests.Printer
       Paths_fcore
