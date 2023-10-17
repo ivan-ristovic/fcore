@@ -22,7 +22,7 @@ srcDir = "samples/"
 testParseFile :: FilePath -> CoreProgram -> Assertion
 testParseFile path expected = do
     actual <- parseCoreFile path
-    assertEqual ("smoke test for " ++ path) expected actual
+    assertEqual ("parser test for " ++ path) expected actual
 
 test_sample_I :: TestTree
 test_sample_I = testCase (testPrefix ++ src)
