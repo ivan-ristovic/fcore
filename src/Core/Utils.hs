@@ -2,6 +2,15 @@ module Core.Utils where
 
 import Data.List (find)
 
+-- Utils
+
+mapAccuml :: (a -> b -> (a, c)) -> a -> [b] -> (a, [c])
+mapAccuml _ acc []     = (acc, [])
+mapAccuml f acc (x:xs) = (acc'', x':xs')
+    where (acc' , x' ) = f acc x
+          (acc'', xs') = mapAccuml f acc' xs
+
+
 -- Addr
 
 type Addr = Int
@@ -15,6 +24,10 @@ aIsNull = (== aNull)
 aShow :: Addr -> String
 aShow a = "#" ++ (show a)
 
+aLookup :: Eq a => [(a, b)] -> a -> b -> b
+aLookup lst k def = case mv of Nothing     -> def
+                               Just (_, v) -> v
+    where mv = find (\(k',_) -> k' == k) lst
 
 -- Heap
 
@@ -47,11 +60,8 @@ hRemove (Heap size free mapping) a = Heap (size-1) (a:free) mapping'
 
 -- lookup given address
 hLookup :: Heap a -> Addr -> a
-hLookup (Heap _ _ mapping) a = 
-    case mn of
-        Nothing -> error ("can't find node " ++ aShow a ++ " in the heap")
-        Just e  -> snd e
-    where mn = find (\(k,_) -> k == a) mapping 
+hLookup (Heap _ _ mapping) a = aLookup mapping a err
+    where err = error ("can't find node " ++ aShow a ++ " in the heap")
 
 -- get all addresses
 hAddrs :: Heap a -> [Addr]

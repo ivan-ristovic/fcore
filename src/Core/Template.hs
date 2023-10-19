@@ -8,6 +8,7 @@ import Control.Monad
 
 import Core.Language
 import Core.Parser
+import Core.Prelude
 import Core.Utils
 
 -- Template instantiation machine state
@@ -63,11 +64,22 @@ runCoreFile :: FilePath -> IO ()
 runCoreFile = parseCoreFile >=> (compile >>> eval >>> showResults >>> putStrLn) 
 
 
-compile :: CoreProgram -> TiState
-compile p = TiState [] DummyTiDump hInitial []
+extraPreludeDefs = []
 
+compile :: CoreProgram -> TiState
+compile p = TiState initStack initTiDump initHeap globals tiStatsInitial
+    where initStack  = [mainAddr]
+          mainAddr   = aLookup globals "main" (error "main is not defined")
+          initTiDump = DummyTiDump 
+          (initHeap, globals) = builtInitialHeap scDefs
+          scDefs     = p ++ preludeDefs ++ extraPreludeDefs 
+
+builtInitialHeap :: [CoreScDef] -> (TiHeap, TiGlobals)
+builtInitialHeap scDefs = mapAccuml allocateSc hInitial scDefs
+    where allocateSc heap (name, args, body) = (\addr -> (name, addr)) <$> hAlloc heap (NSc name args body)
+    
 eval :: TiState -> [TiState]
 eval s = [s]
 
 showResults :: [TiState] -> String
-showResults ss = "Hello"
+showResults ss = show ss

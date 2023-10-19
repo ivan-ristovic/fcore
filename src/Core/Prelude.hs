@@ -2,7 +2,7 @@ module Core.Prelude where
 
 import Core.Language
 
-preludeDefs :: CoreProgram
+preludeDefs :: [CoreScDef]
 preludeDefs
   = [ builtinI
     , builtinK
