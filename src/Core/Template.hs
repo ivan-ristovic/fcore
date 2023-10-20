@@ -79,7 +79,38 @@ builtInitialHeap scDefs = mapAccuml allocateSc hInitial scDefs
     where allocateSc heap (name, args, body) = (\addr -> (name, addr)) <$> hAlloc heap (NSc name args body)
     
 eval :: TiState -> [TiState]
-eval s = [s]
+eval state = state:states
+    where states
+            | isFinalState state = []
+            | otherwise          = eval next_state
+          next_state = updateStats $ step state
+
+updateStats :: TiState -> TiState
+updateStats = applyToStats (\s -> s { tiStatsSteps = tiStatsSteps s + 1 })
+
+isFinalState :: TiState -> Bool
+isFinalState (TiState [] _ heap _ _)          = error "empty stack"     -- unreachable
+isFinalState (TiState [sole_addr] _ heap _ _) = isDataNode (hLookup heap sole_addr)
+isFinalState _                                = False
+
+isDataNode :: Node -> Bool
+isDataNode (NNb _) = True
+isDataNode _       = False
+
+step :: TiState -> TiState
+step state@(TiState (addr:_) dump heap globals stats) = dispatch $ hLookup heap addr
+    where dispatch (NNb n)            = stepNb state n
+          dispatch (NAp a1 a2)        = stepAp state a1 a2
+          dispatch (NSc sc args body) = stepSc state sc args body
+
+stepNb :: TiState -> Int -> TiState
+stepNb state n = error "error: Number applied as a function!"
+
+stepAp :: TiState -> Addr -> Addr -> TiState
+stepAp state a1 _ = state { tiStateStack = a1 : (tiStateStack state) }
+
+stepSc :: TiState -> Name -> [Name] -> CoreExpr -> TiState
+stepSc = undefined 
 
 showResults :: [TiState] -> String
 showResults ss = show ss
