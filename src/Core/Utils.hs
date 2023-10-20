@@ -4,6 +4,12 @@ import Data.List (find)
 
 -- Utils
 
+err :: String -> a
+err msg = error $ "error: " ++ msg
+
+panic :: String -> a
+panic msg = error $ "!!! PANIC !!! Should not reach here: " ++ msg
+
 mapAccuml :: (a -> b -> (a, c)) -> a -> [b] -> (a, [c])
 mapAccuml _ acc []     = (acc, [])
 mapAccuml f acc (x:xs) = (acc'', x':xs')
@@ -22,12 +28,13 @@ aIsNull :: Addr -> Bool
 aIsNull = (== aNull) 
 
 aShow :: Addr -> String
-aShow a = "#" ++ (show a)
+aShow a = "#" ++ show a
 
 aLookup :: Eq a => [(a, b)] -> a -> b -> b
 aLookup lst k def = case mv of Nothing     -> def
                                Just (_, v) -> v
     where mv = find (\(k',_) -> k' == k) lst
+
 
 -- Heap
 
@@ -43,7 +50,7 @@ hInitial = Heap 0 [1..] []
 
 -- adds element to heap, returns new heap and added element address
 hAlloc :: Heap a -> a -> (Heap a, Addr)
-hAlloc (Heap _ [] _) _ = error "heap should have a non-empty free address list"
+hAlloc (Heap _ [] _) _ = err "heap should have a non-empty free address list"
 hAlloc (Heap size (addr:free) mapping) n = (heap', addr)
     where heap' = Heap (size+1) free mapping' 
           mapping' = (addr,n):mapping
@@ -60,8 +67,8 @@ hRemove (Heap size free mapping) a = Heap (size-1) (a:free) mapping'
 
 -- lookup given address
 hLookup :: Heap a -> Addr -> a
-hLookup (Heap _ _ mapping) a = aLookup mapping a err
-    where err = error ("can't find node " ++ aShow a ++ " in the heap")
+hLookup (Heap _ _ mapping) a = aLookup mapping a exc
+    where exc = error $ "can't find node " ++ aShow a ++ " in the heap"
 
 -- get all addresses
 hAddrs :: Heap a -> [Addr]
