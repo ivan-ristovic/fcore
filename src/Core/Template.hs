@@ -66,11 +66,13 @@ applyToStats f state = state { tiStateStats = f (tiStateStats state) }
 
 -- Entry points
 
-runCoreProgram :: String -> Either ParseError String
-runCoreProgram = parseCoreProgram >>> fmap (compile >>> eval >>> showResults)
+type Verbosity = Int
 
-runCoreFile :: FilePath -> IO ()
-runCoreFile = parseCoreFile >=> (compile >>> eval >>> showResults >>> putStrLn) 
+runCoreProgram :: Verbosity -> String -> Either ParseError String
+runCoreProgram v = parseCoreProgram >>> fmap (compile >>> eval >>> showResults v)
+
+runCoreFile :: Verbosity -> FilePath -> IO ()
+runCoreFile v = parseCoreFile >=> (compile >>> eval >>> showResults v >>> putStrLn) 
 
 
 -- Compilation and Evaluation
@@ -163,10 +165,20 @@ instantiate _ _ _ = undefined
 
 -- Pretty print states
 
-showResults :: [TiState] -> String
-showResults states = render . vcat . punctuate (text "\n") $ results
-  where
-    results = map showState states <> [ showStats (last states) ]
+showResults :: Verbosity -> [TiState] -> String
+showResults v states = case v of 
+    0 -> render fresult
+    1 -> rend stats
+    _ -> rend results
+    where rend o  = render . vcat . punctuate (text "\n") $ [fresult] <> o
+          results = map showState states <> stats
+          stats   = [ showStats (fstate) ]
+          fstate  = last states
+          fresult = showFinalResult fstate 
+
+showFinalResult :: TiState -> Doc
+showFinalResult (TiState (addr:_) _ heap _ _) = showStkNode heap (hLookup heap addr)
+showFinalResult _ = text "no result"
 
 showState :: TiState -> Doc
 showState (TiState stack _ heap _ _) = showStack heap stack $+$
@@ -179,28 +191,26 @@ showHeap = (text "H" <+>) . brackets
 
 showStack :: TiHeap -> TiStack -> Doc
 showStack heap stack = text "S" <+> brackets (nest 2 (vcat items))
-  where
-    items = map showStackItem stack
-    showStackItem addr = mconcat [ showFWAddr addr, text ": "
-                                 , showStkNode heap (hLookup heap addr)
-                                 ]
+    where items = map showStackItem stack
+          showStackItem addr = mconcat [ showFWAddr addr, text ": "
+                                       , showStkNode heap (hLookup heap addr)
+                                       ]
 
 showStkNode :: TiHeap -> Node -> Doc
 showStkNode heap (NAp fun_addr arg_addr) =
-  mconcat [ text "NAp"
-          , space, showFWAddr fun_addr
-          , space, showFWAddr arg_addr
-          , space, parens (showNode (hLookup heap arg_addr))
-          ]
+    mconcat [ text "NAp"
+            , space, showFWAddr fun_addr
+            , space, showFWAddr arg_addr
+            , space, parens (showNode (hLookup heap arg_addr))
+            ]
 showStkNode _heap node = showNode node
 
 showNode :: Node -> Doc
 showNode (NAp a1 a2) =
-  mconcat [ text "NAp ", showAddrD a1
-          , space      , showAddrD a2
-          ]
-showNode (NSc name _args _body) =
-  text "NSc" <+> text name
+    mconcat [ text "NAp ", showAddrD a1
+            , space      , showAddrD a2
+            ]
+showNode (NSc name _args _body) = text "NSc" <+> text name
 showNode (NNb n) = text "NNb" <+> int n
 
 showAddrD :: Addr -> Doc
@@ -208,11 +218,11 @@ showAddrD addr = text $ aShow addr
 
 showFWAddr :: Addr -> Doc
 showFWAddr addr = pad <> text aStr
-  where aStr = aShow addr
-        pad  = mconcat (replicate (4 - length aStr) space)
+    where aStr = aShow addr
+          pad  = mconcat (replicate (4 - length aStr) space)
 
 showStats :: TiState -> Doc
 showStats st =
-  mconcat [ text "--- Stats ---\n"
-          , text "Total number of steps = ", int $ tiStatsSteps $ tiStateStats st
-          ]
+    mconcat [ text "--- Stats ---\n"
+            , text "Total number of steps = ", int $ tiStatsSteps $ tiStateStats st
+            ]

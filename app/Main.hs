@@ -2,6 +2,9 @@
 module Main (main) where
 
 import Core.Language
+import Core.Parser
+import Core.Printer
+import Core.Template
 
 import Control.Monad
 import Options.Applicative
@@ -48,5 +51,22 @@ main = doCommand =<< execParser opts
               <> header "fcore - FCore program interpreter" )
 
 doCommand :: FCoreOptions -> IO ()
-doCommand = print
+-- run
+doCommand (FCoreOptions v (CmdRun StdInput)) = do
+    prog <- getContents
+    either print putStrLn $ runCoreProgram v prog 
+doCommand (FCoreOptions v (CmdRun (FileInput path))) = 
+    runCoreFile v path 
+-- par
+doCommand (FCoreOptions _ (CmdParse (StdInput))) = do
+    prog <- getContents
+    either print (putStrLn . show) $ parseCoreProgram prog 
+doCommand (FCoreOptions _ (CmdParse (FileInput path))) = 
+    parseCoreFile path >>= print 
+-- fmt
+doCommand (FCoreOptions _ (CmdFormat (StdInput))) = do
+    prog <- getContents
+    either print (putStrLn . pprint) $ parseCoreProgram prog 
+doCommand (FCoreOptions _ (CmdFormat (FileInput path))) = 
+    parseCoreFile path >>= (putStrLn . pprint)
 

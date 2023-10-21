@@ -9,7 +9,7 @@ import Core.Language
 
 
 pprint :: CoreProgram -> String
-pprint = render . fsep . programToDoc
+pprint = render . vcat . punctuate (text " ;") . programToDoc
 
 
 -- Doc converters for Core constructs
