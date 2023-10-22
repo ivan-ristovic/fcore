@@ -40,9 +40,10 @@ type TiStack = [Addr]
 data TiDump = DummyTiDump deriving Show
 type TiHeap = Heap Node
 
-data Node = NAp Addr Addr
-          | NSc Name [Name] CoreExpr
-          | NNb Int
+data Node = NAp Addr Addr               -- Application
+          | NSc Name [Name] CoreExpr    -- Supercombinator
+          | NNb Int                     -- Number
+          | NIn Addr                    -- Indirection
           deriving (Show, Eq)
 
 type TiGlobals = [(Name, Addr)]
@@ -122,7 +123,8 @@ step state@(TiState (addr:_) _ heap _ _) = dispatch $ hLookup heap addr
     where dispatch (NNb n)            = stepNb state n
           dispatch (NAp a1 a2)        = stepAp state a1 a2
           dispatch (NSc sc args body) = stepSc state sc args body
-step _ = panic "empty stack"
+          dispatch (NIn a)            = stepIn state a
+step _ = panic "step: empty stack"
 
 stepNb :: TiState -> Int -> TiState
 stepNb n _ = err $ "number " ++ show n ++ " applied as a function"
@@ -131,21 +133,27 @@ stepAp :: TiState -> Addr -> Addr -> TiState
 stepAp state a1 _ = state { tiStateStack = a1 : (tiStateStack state) }
 
 stepSc :: TiState -> Name -> [Name] -> CoreExpr -> TiState
-stepSc (TiState stack dump heap globals stats) sc args body = TiState stack' dump heap' globals stats
-    where stack' = result_addr : (drop (argc + 1) stack)
+stepSc (TiState stack dump heap globals stats) sc args body 
+    | argc + 1 <= length stack = TiState stack'' dump heap'' globals stats
+    | otherwise = err $ sc ++ " applied to too few arguments"
+    where root_addr:stack' = drop argc stack
+          stack'' = result_addr:stack'
           argc = length args
           (heap', result_addr) = instantiate body heap env
+          heap'' = hUpdate heap' root_addr (NIn result_addr)
           env = arg_bindings ++ globals
           provided_args = getargs heap stack
-          arg_bindings
-              | argc > length provided_args = err $ sc ++ " applied to too few arguments"
-              | otherwise = zip args provided_args 
+          arg_bindings = zip args provided_args 
+
+stepIn :: TiState -> Addr -> TiState
+stepIn (TiState (_:stack) dump heap globals stats) addr = TiState (addr:stack) dump heap globals stats
+stepIn _ _ = panic "indirection step: empty stack"
 
 getargs :: TiHeap -> TiStack -> [Addr]
 getargs heap (_:stack) = map getarg stack
     where getarg addr = case hLookup heap addr of (NAp _ arg) -> arg
                                                   _           -> panic "expected NAp"
-getargs _ _ = panic "empty stack"
+getargs _ _ = panic "getargs: empty stack"
 
 
 -- Instantiation
@@ -216,10 +224,11 @@ showStackNode :: TiHeap -> Node -> Doc
 showStackNode heap (NAp fun_addr arg_addr) =
     mconcat [ text "NAp"
             , space, showFWAddr fun_addr
+            -- , space, parens (showNode (hLookup heap fun_addr))
             , space, showFWAddr arg_addr
             , space, parens (showNode (hLookup heap arg_addr))
             ]
-showStackNode _heap node = showNode node
+showStackNode _ node = showNode node
 
 showNode :: Node -> Doc
 showNode (NAp a1 a2) =
@@ -228,6 +237,7 @@ showNode (NAp a1 a2) =
             ]
 showNode (NSc name _args _body) = text "NSc" <+> text name
 showNode (NNb n) = text "NNb" <+> int n
+showNode (NIn a) = text "NIn" <+> parens (showAddrD a)
 
 showAddrD :: Addr -> Doc
 showAddrD addr = text $ aShow addr
