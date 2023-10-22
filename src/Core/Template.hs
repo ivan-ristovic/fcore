@@ -124,12 +124,15 @@ stepAp :: TiState -> Addr -> Addr -> TiState
 stepAp state a1 _ = state { tiStateStack = a1 : (tiStateStack state) }
 
 stepSc :: TiState -> Name -> [Name] -> CoreExpr -> TiState
-stepSc (TiState stack dump heap globals stats) _ args body = TiState stack' dump heap' globals stats
+stepSc (TiState stack dump heap globals stats) sc args body = TiState stack' dump heap' globals stats
     where stack' = result_addr : (drop (argc + 1) stack)
           argc = length args
           (heap', result_addr) = instantiate body heap env
           env = arg_bindings ++ globals
-          arg_bindings = zip args (getargs heap stack)
+          provided_args = getargs heap stack
+          arg_bindings
+              | argc > length provided_args = err $ sc ++ " applied to too few arguments"
+              | otherwise = zip args provided_args 
 
 getargs :: TiHeap -> TiStack -> [Addr]
 getargs heap (_:stack) = map getarg stack
