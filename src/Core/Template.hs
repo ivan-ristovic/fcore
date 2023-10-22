@@ -51,14 +51,18 @@ type TiGlobals = [(Name, Addr)]
 -- Template machine stats tracking
 
 data TiStats = TiStats
-    { tiStatsSteps :: Int
+    { tiStatsSteps         :: Int
+    , tiStatsMaxStackDepth :: Int
     } deriving (Show)
 
 tiStatsInitial :: TiStats
-tiStatsInitial = TiStats 0
+tiStatsInitial = TiStats 0 0
 
 tiStatsIncSteps :: TiStats -> TiStats
 tiStatsIncSteps s = s { tiStatsSteps = tiStatsSteps s + 1 }
+
+tiStatsUpdMaxStackDepth :: Int -> TiStats -> TiStats
+tiStatsUpdMaxStackDepth d s = s { tiStatsMaxStackDepth = max d (tiStatsMaxStackDepth s) }
 
 applyToStats :: (TiStats -> TiStats) -> TiState -> TiState
 applyToStats f state = state { tiStateStats = f (tiStateStats state) }
@@ -99,7 +103,10 @@ eval state = state:states
           next_state = updateStats $ step state
 
 updateStats :: TiState -> TiState
-updateStats = applyToStats tiStatsIncSteps
+updateStats state = state'
+    where state'  = applyToStats (tiStatsUpdMaxStackDepth stackD) state
+          state'' = applyToStats tiStatsIncSteps state'
+          stackD  = length $ tiStateStack state
 
 isFinalState :: TiState -> Bool
 isFinalState (TiState [] _ _ _ _)             = panic "empty stack"
@@ -118,7 +125,7 @@ step state@(TiState (addr:_) _ heap _ _) = dispatch $ hLookup heap addr
 step _ = panic "empty stack"
 
 stepNb :: TiState -> Int -> TiState
-stepNb _ _ = err "number applied as a function"
+stepNb n _ = err $ "number " ++ show n ++ " applied as a function"
 
 stepAp :: TiState -> Addr -> Addr -> TiState
 stepAp state a1 _ = state { tiStateStack = a1 : (tiStateStack state) }
@@ -166,7 +173,7 @@ instantiate (ECase _ _) _ _ = panic "attempting to instantiate case expr"
 instantiate _ _ _ = undefined
 
 
--- Pretty print states
+-- Pretty print results
 
 showResults :: Verbosity -> [TiState] -> String
 showResults v states = case v of 
@@ -225,7 +232,11 @@ showFWAddr addr = pad <> text aStr
           pad  = mconcat (replicate (4 - length aStr) space)
 
 showStats :: TiState -> Doc
-showStats st =
-    mconcat [ text "--- Stats ---\n"
-            , text "Total number of steps = ", int $ tiStatsSteps $ tiStateStats st
+showStats (TiState _ _ _ _ stats) =
+    mconcat [ text "----- Stats -----\n"
+            , text "Total steps     : ", int $ tiStatsSteps         $ stats
+            , text "\n"
+            , text "Max stack depth : ", int $ tiStatsMaxStackDepth $ stats
+            , text "\n"
             ]
+

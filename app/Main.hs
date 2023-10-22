@@ -1,12 +1,10 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 module Main (main) where
 
-import Core.Language
 import Core.Parser
 import Core.Printer
 import Core.Template
 
-import Control.Monad
 import Options.Applicative
 
 
