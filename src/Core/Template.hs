@@ -103,7 +103,7 @@ eval state = state:states
           next_state = updateStats $ step state
 
 updateStats :: TiState -> TiState
-updateStats state = state'
+updateStats state = state''
     where state'  = applyToStats (tiStatsUpdMaxStackDepth stackD) state
           state'' = applyToStats tiStatsIncSteps state'
           stackD  = length $ tiStateStack state
@@ -164,13 +164,19 @@ instantiate (EAp e1 e2) heap env = hAlloc heap'' (NAp a1 a2)
 instantiate (EVar v) heap env = (heap, addr)
     where addr = aLookup env v (err ("undefined name " ++ show v))
 
-instantiate (ECons t ar) heap env = undefined 
+instantiate (ELet isRec defs body) heap env = instantiate body heap' env'
+    where (heap', env') = foldl accum (heap, env) defs
+          accum (accHeap, accEnv) (var, expr) = 
+               let (accHeap', addr) = instantiate expr accHeap chosenEnv
+                   chosenEnv = if isRec then env' else env
+                   accEnv' = (var, addr) : accEnv
+               in (accHeap', accEnv')
 
-instantiate (ELet rec defs body) heap env = undefined 
+instantiate (ECons _ _) _ _ = notImplemented "Cons instantiation" 
 
-instantiate (ECase _ _) _ _ = panic "attempting to instantiate case expr"
+instantiate (ECase _ _) _ _ = notImplemented "caseof instantiation"
 
-instantiate _ _ _ = undefined
+instantiate (ELam _ _) _ _ = notImplemented "lambda instantiation"
 
 
 -- Pretty print results
@@ -187,7 +193,7 @@ showResults v states = case v of
           fresult = showFinalResult fstate 
 
 showFinalResult :: TiState -> Doc
-showFinalResult (TiState (addr:_) _ heap _ _) = showStkNode heap (hLookup heap addr)
+showFinalResult (TiState (addr:_) _ heap _ _) = showStackNode heap (hLookup heap addr)
 showFinalResult _ = text "no result"
 
 showState :: TiState -> Doc
@@ -203,17 +209,17 @@ showStack :: TiHeap -> TiStack -> Doc
 showStack heap stack = text "S" <+> brackets (nest 2 (vcat items))
     where items = map showStackItem stack
           showStackItem addr = mconcat [ showFWAddr addr, text ": "
-                                       , showStkNode heap (hLookup heap addr)
+                                       , showStackNode heap (hLookup heap addr)
                                        ]
 
-showStkNode :: TiHeap -> Node -> Doc
-showStkNode heap (NAp fun_addr arg_addr) =
+showStackNode :: TiHeap -> Node -> Doc
+showStackNode heap (NAp fun_addr arg_addr) =
     mconcat [ text "NAp"
             , space, showFWAddr fun_addr
             , space, showFWAddr arg_addr
             , space, parens (showNode (hLookup heap arg_addr))
             ]
-showStkNode _heap node = showNode node
+showStackNode _heap node = showNode node
 
 showNode :: Node -> Doc
 showNode (NAp a1 a2) =

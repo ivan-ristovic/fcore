@@ -10,6 +10,9 @@ err msg = error $ "error: " ++ msg
 panic :: String -> a
 panic msg = error $ "!!! PANIC !!! Should not reach here: " ++ msg
 
+notImplemented :: String -> a
+notImplemented feature = error $ "feature not yet implemented: " ++ feature
+
 mapAccuml :: (a -> b -> (a, c)) -> a -> [b] -> (a, [c])
 mapAccuml _ acc []     = (acc, [])
 mapAccuml f acc (x:xs) = (acc'', x':xs')
