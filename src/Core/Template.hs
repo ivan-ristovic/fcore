@@ -37,19 +37,22 @@ data TiState = TiState
     } deriving (Show)
 
 type TiStack = [Addr]
-data TiDump = DummyTiDump deriving Show
-type TiHeap = Heap Node
+type TiDump  = [TiStack]
+type TiGlobals = [(Name, Addr)]
 
+type TiHeap  = Heap Node
 data Node = NAp Addr Addr               -- Application
           | NSc Name [Name] CoreExpr    -- Supercombinator
           | NNb Int                     -- Number
           | NIn Addr                    -- Indirection
+          | NPr Name Primitive          -- Primitive
           deriving (Show, Eq)
 
-type TiGlobals = [(Name, Addr)]
+data Primitive = Neg | Add | Sub | Mul | Div 
+    deriving (Show, Eq)
 
 
--- Template machine stats tracking
+-- Template instantiation machine stats tracking
 
 data TiStats = TiStats
     { tiStatsSteps         :: Int
@@ -88,13 +91,23 @@ compile :: CoreProgram -> TiState
 compile p = TiState initStack initTiDump initHeap globals tiStatsInitial
     where initStack  = [mainAddr]
           mainAddr   = aLookup globals "main" (err "main is not defined")
-          initTiDump = DummyTiDump 
-          (initHeap, globals) = builtInitialHeap scDefs
+          initTiDump = [] 
+          (initHeap, globals) = buildInitialHeap scDefs
           scDefs     = p ++ preludeDefs ++ extraPreludeDefs 
 
-builtInitialHeap :: [CoreScDef] -> (TiHeap, TiGlobals)
-builtInitialHeap scDefs = mapAccuml allocateSc hInitial scDefs
-    where allocateSc heap (name, args, body) = (\addr -> (name, addr)) <$> hAlloc heap (NSc name args body)
+buildInitialHeap :: [CoreScDef] -> (TiHeap, TiGlobals)
+buildInitialHeap sc_defs = (heap'', sc_addrs ++ prim_addrs) 
+    where (heap', sc_addrs) = mapAccuml allocateSc hInitial sc_defs
+          allocateSc heap (name, args, body) = (\addr -> (name, addr)) <$> hAlloc heap (NSc name args body)
+          (heap'', prim_addrs) = mapAccuml allocatePr heap' primitives
+          allocatePr heap (name, prim) = let (h, a) = hAlloc heap (NPr name prim)
+                                          in (h, (name, a))
+
+primitives :: [(Name, Primitive)]
+primitives = [ (opAneg, Neg)
+             , (opAadd, Add), (opAsub, Sub)
+             , (opAmul, Mul), (opAdiv, Div)
+             ]
     
 eval :: TiState -> [TiState]
 eval state = state:states
@@ -110,9 +123,9 @@ updateStats state = state''
           stackD  = length $ tiStateStack state
 
 isFinalState :: TiState -> Bool
-isFinalState (TiState [] _ _ _ _)             = panic "empty stack"
-isFinalState (TiState [sole_addr] _ heap _ _) = isDataNode (hLookup heap sole_addr)
-isFinalState _                                = False
+isFinalState (TiState [] _ _ _ _)              = panic "empty stack"
+isFinalState (TiState [sole_addr] [] heap _ _) = isDataNode (hLookup heap sole_addr)
+isFinalState _                                 = False
 
 isDataNode :: Node -> Bool
 isDataNode (NNb _) = True
@@ -124,13 +137,23 @@ step state@(TiState (addr:_) _ heap _ _) = dispatch $ hLookup heap addr
           dispatch (NAp a1 a2)        = stepAp state a1 a2
           dispatch (NSc sc args body) = stepSc state sc args body
           dispatch (NIn a)            = stepIn state a
+          dispatch (NPr name prim)    = stepPr state prim
 step _ = panic "step: empty stack"
 
 stepNb :: TiState -> Int -> TiState
-stepNb n _ = err $ "number " ++ show n ++ " applied as a function"
+stepNb (TiState [_] (stack:dump) heap globals stats) _ = TiState stack dump heap globals stats
+stepNb (TiState _ (_:_) _ _ _) _ = err $ "stepNb: wrong stack detected" 
+stepNb (TiState _ _ _ _ _)     _ = err $ "stepNb: wrong dump detected"
 
 stepAp :: TiState -> Addr -> Addr -> TiState
-stepAp state a1 _ = state { tiStateStack = a1 : (tiStateStack state) }
+stepAp (TiState stack@(topAddr:_) dump heap globals stats) a1 a2
+  = case arg of
+      NIn a3 -> TiState stack dump (makeHeap a3) globals stats
+      _      -> TiState (a1:stack) dump heap globals stats
+    where
+        makeHeap = hUpdate heap topAddr . NAp a1
+        arg      = hLookup heap a2
+stepAp _ _ _ = err $ "stepAp: empty stack"
 
 stepSc :: TiState -> Name -> [Name] -> CoreExpr -> TiState
 stepSc (TiState stack dump heap globals stats) sc args body 
@@ -148,6 +171,44 @@ stepSc (TiState stack dump heap globals stats) sc args body
 stepIn :: TiState -> Addr -> TiState
 stepIn (TiState (_:stack) dump heap globals stats) addr = TiState (addr:stack) dump heap globals stats
 stepIn _ _ = panic "indirection step: empty stack"
+
+stepPr :: TiState -> Primitive -> TiState
+stepPr state Neg = primNeg state
+stepPr state Add = primArith state (+)
+stepPr state Sub = primArith state (-)
+stepPr state Mul = primArith state (*)
+stepPr state Div = primArith state div
+
+primNeg :: TiState -> TiState
+primNeg (TiState stack@(_:_:_) dump heap globals stats)
+    | isDataNode arg = TiState negApStack dump heap' globals stats
+    | otherwise = TiState [argAddr] (negApStack:dump) heap globals stats
+    where
+        _:negApStack@(rootAddr:_) = stack
+        heap' = hUpdate heap rootAddr (NNb $ negate value)
+        argAddr:_ = getargs heap stack
+        arg = hLookup heap argAddr
+        NNb value = arg
+primNeg _ = err "negate: not enough args)"
+
+primArith :: TiState -> (Int -> Int -> Int) -> TiState
+primArith (TiState stack@(_:_:_:_) dump heap globals stats) f
+    | arg1IsDataNode && arg2IsDataNode = TiState ap2Stack dump heap' globals stats
+    | arg2IsDataNode = TiState [arg1Addr] (ap1Stack:dump) heap globals stats
+    | otherwise = TiState [arg2Addr] (ap2Stack:dump) heap globals stats
+    where
+        heap' = hUpdate heap rootAddr (NNb $ f v1 v2)
+        _:ap1Stack = stack
+        _:ap2Stack = ap1Stack
+        rootAddr:_ = ap2Stack
+        arg1Addr:arg2Addr:_ = getargs heap stack
+        arg1 = hLookup heap arg1Addr
+        arg2 = hLookup heap arg2Addr
+        arg1IsDataNode = isDataNode arg1
+        arg2IsDataNode = isDataNode arg2
+        NNb v1 = arg1
+        NNb v2 = arg2
+primArith _ _ = err "primArith: wrong stack detected"
 
 getargs :: TiHeap -> TiStack -> [Addr]
 getargs heap (_:stack) = map getarg stack
@@ -238,6 +299,7 @@ showNode (NAp a1 a2) =
 showNode (NSc name _args _body) = text "NSc" <+> text name
 showNode (NNb n) = text "NNb" <+> int n
 showNode (NIn a) = text "NIn" <+> parens (showAddrD a)
+showNode (NPr _ prim) = text "NPr" <+> text (show prim)
 
 showAddrD :: Addr -> Doc
 showAddrD addr = text $ aShow addr

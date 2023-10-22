@@ -10,8 +10,6 @@ $stack build
 dir=samples
 
 ignore_list=(
-    "$dir"/arithm.fc
-    "$dir"/lists1.fc
 )
 
 for src in "$dir"/*.fc; do

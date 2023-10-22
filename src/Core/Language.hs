@@ -116,6 +116,7 @@ opAadd = "+"
 opAsub = "-"
 opAmul = "*"
 opAdiv = "/"
+opAneg = "negate" -- not counted in arithm ops table!
 
 logicOps = [opLand, opLor]
 opLand = "&"
