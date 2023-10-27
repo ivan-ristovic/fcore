@@ -87,6 +87,7 @@ kwCase    = "case"
 kwIn      = "in"
 kwOf      = "of"
 kwCons    = "Cons"
+kwIf      = "if"  -- not counted as a keyword, since it is implemented as a primitive!
 
 kwLet :: Bool -> String
 kwLet True  = kwLetRec

@@ -46,10 +46,36 @@ data Node = NAp Addr Addr               -- Application
           | NNb Int                     -- Number
           | NIn Addr                    -- Indirection
           | NPr Name Primitive          -- Primitive
+          | NDt Int [Addr]              -- Data type - tag, components
           deriving (Show, Eq)
 
-data Primitive = Neg | Add | Sub | Mul | Div 
-    deriving (Show, Eq)
+
+-- Primitives
+
+data Primitive = Neg
+               | Add
+               | Sub
+               | Mul
+               | Div
+               | PrimCons Int Int
+               | If
+               | Greater
+               | GreaterEq
+               | Less
+               | LessEq
+               | Eq
+               | NotEq
+               deriving (Show, Eq)
+
+primitives :: [(Name, Primitive)]
+primitives = [ (opAneg, Neg)
+             , (opAadd, Add), (opAsub, Sub)
+             , (opAmul, Mul), (opAdiv, Div)
+             , (kwIf, If)
+             , (opRgt, Greater), (opRge, GreaterEq)
+             , (opRlt, Less), (opRle, LessEq)
+             , (opReq, Eq), (opRne, NotEq)
+             ]
 
 
 -- Template instantiation machine stats tracking
@@ -85,7 +111,18 @@ runCoreFile v = parseCoreFile >=> (compile >>> eval >>> showResults v >>> putStr
 
 -- Compilation and Evaluation
 
-extraPreludeDefs = []
+tagBool :: Bool -> Int
+tagBool False = 1
+tagBool True  = 2
+
+extraPreludeDefs = 
+    [ ("False", []        , ECons (tagBool False) 0 )
+    , ("True" , []        , ECons (tagBool True)  0)
+    , ("and"  , ["x", "y"], EAp (EAp (EAp (EVar "if") (EVar "x")) (EVar "y")) (EVar "False"))
+    , ("or"   , ["x", "y"], EAp (EAp (EAp (EVar "if") (EVar "x")) (EVar "True")) (EVar "y"))
+    , ("xor"  , ["x", "y"], EAp (EAp (EAp (EVar "if") (EVar "x")) (EAp (EVar "not") (EVar "y"))) (EVar "y"))
+    , ("not"  , ["y"]     , EAp (EAp (EAp (EVar "if") (EVar "y")) (EVar "False")) (EVar "True"))
+    ]
 
 compile :: CoreProgram -> TiState
 compile p = TiState initStack initTiDump initHeap globals tiStatsInitial
@@ -100,15 +137,8 @@ buildInitialHeap sc_defs = (heap'', sc_addrs ++ prim_addrs)
     where (heap', sc_addrs) = mapAccuml allocateSc hInitial sc_defs
           allocateSc heap (name, args, body) = (\addr -> (name, addr)) <$> hAlloc heap (NSc name args body)
           (heap'', prim_addrs) = mapAccuml allocatePr heap' primitives
-          allocatePr heap (name, prim) = let (h, a) = hAlloc heap (NPr name prim)
+          allocatePr heap (name, prim) =  let (h, a) = hAlloc heap (NPr name prim)
                                           in (h, (name, a))
-
-primitives :: [(Name, Primitive)]
-primitives = [ (opAneg, Neg)
-             , (opAadd, Add), (opAsub, Sub)
-             , (opAmul, Mul), (opAdiv, Div)
-             ]
-    
 eval :: TiState -> [TiState]
 eval state = state:states
     where states
@@ -123,13 +153,14 @@ updateStats state = state''
           stackD  = length $ tiStateStack state
 
 isFinalState :: TiState -> Bool
-isFinalState (TiState [] _ _ _ _)              = panic "empty stack"
 isFinalState (TiState [sole_addr] [] heap _ _) = isDataNode (hLookup heap sole_addr)
+isFinalState (TiState [] _ _ _ _)              = panic "empty stack"
 isFinalState _                                 = False
 
 isDataNode :: Node -> Bool
-isDataNode (NNb _) = True
-isDataNode _       = False
+isDataNode (NNb _)   = True
+isDataNode (NDt _ _) = True
+isDataNode _         = False
 
 step :: TiState -> TiState
 step state@(TiState (addr:_) _ heap _ _) = dispatch $ hLookup heap addr
@@ -138,6 +169,7 @@ step state@(TiState (addr:_) _ heap _ _) = dispatch $ hLookup heap addr
           dispatch (NSc sc args body) = stepSc state sc args body
           dispatch (NIn a)            = stepIn state a
           dispatch (NPr name prim)    = stepPr state prim
+          dispatch (NDt tag args)     = stepDt state tag args
 step _ = panic "step: empty stack"
 
 stepNb :: TiState -> Int -> TiState
@@ -146,58 +178,57 @@ stepNb (TiState _ (_:_) _ _ _) _ = err $ "stepNb: wrong stack detected"
 stepNb (TiState _ _ _ _ _)     _ = err $ "stepNb: wrong dump detected"
 
 stepAp :: TiState -> Addr -> Addr -> TiState
-stepAp (TiState stack@(topAddr:_) dump heap globals stats) a1 a2
-  = case arg of
-      NIn a3 -> TiState stack dump (makeHeap a3) globals stats
-      _      -> TiState (a1:stack) dump heap globals stats
+stepAp (TiState stack@(topAddr:_) dump heap globals stats) a1 a2 =
+    case arg of
+        NIn a3 -> TiState stack dump (makeHeap a3) globals stats
+        _      -> TiState (a1:stack) dump heap globals stats
     where
         makeHeap = hUpdate heap topAddr . NAp a1
         arg      = hLookup heap a2
-stepAp _ _ _ = err $ "stepAp: empty stack"
+stepAp _ _ _ = err "stepAp: empty stack"
 
 stepSc :: TiState -> Name -> [Name] -> CoreExpr -> TiState
-stepSc (TiState stack dump heap globals stats) sc args body 
-    | argc + 1 <= length stack = TiState stack'' dump heap'' globals stats
-    | otherwise = err $ sc ++ " applied to too few arguments"
-    where root_addr:stack' = drop argc stack
-          stack'' = result_addr:stack'
-          argc = length args
-          (heap', result_addr) = instantiate body heap env
-          heap'' = hUpdate heap' root_addr (NIn result_addr)
-          env = arg_bindings ++ globals
-          provided_args = getargs heap stack
-          arg_bindings = zip args provided_args 
+stepSc (TiState stack dump heap globals stats) scName argNames body
+    | argc + 1 <= length stack = TiState stack' dump heap' globals stats
+    | otherwise                = err $ scName ++ " applied to too few arguments"
+    where
+        stack'@(rootAddr:_) = drop argc stack
+        heap' = instantiateAndUpdate body rootAddr heap env
+        env = argBindings ++ globals
+        argBindings = zip argNames (getargs heap stack)
+        argc = length argNames
 
 stepIn :: TiState -> Addr -> TiState
 stepIn (TiState (_:stack) dump heap globals stats) addr = TiState (addr:stack) dump heap globals stats
-stepIn _ _ = panic "indirection step: empty stack"
+stepIn _ _ = panic "stepIn: empty stack"
 
 stepPr :: TiState -> Primitive -> TiState
 stepPr state Neg = primNeg state
-stepPr state Add = primArith state (+)
-stepPr state Sub = primArith state (-)
-stepPr state Mul = primArith state (*)
-stepPr state Div = primArith state div
+stepPr state Add = primArithm state (+)
+stepPr state Sub = primArithm state (-)
+stepPr state Mul = primArithm state (*)
+stepPr state Div = primArithm state div
+stepPr state (PrimCons tag ar) = primCons state tag ar
+stepPr state If = primIf state
+stepPr state Greater   = primCmp state (>)
+stepPr state GreaterEq = primCmp state (>=)
+stepPr state Less      = primCmp state (<)
+stepPr state LessEq    = primCmp state (<=)
+stepPr state Eq        = primCmp state (==)
+stepPr state NotEq     = primCmp state (/=)
 
-primNeg :: TiState -> TiState
-primNeg (TiState stack@(_:_:_) dump heap globals stats)
-    | isDataNode arg = TiState negApStack dump heap' globals stats
-    | otherwise = TiState [argAddr] (negApStack:dump) heap globals stats
-    where
-        _:negApStack@(rootAddr:_) = stack
-        heap' = hUpdate heap rootAddr (NNb $ negate value)
-        argAddr:_ = getargs heap stack
-        arg = hLookup heap argAddr
-        NNb value = arg
-primNeg _ = err "negate: not enough args)"
+stepDt :: TiState -> Int -> [Addr] -> TiState
+stepDt (TiState [_] (stack:dump) heap globals stats) _ _ = TiState stack dump heap globals stats
+stepDt (TiState _ (_:_) _ _ _) _ _ = err $ "stepDt: wrong stack" 
+stepDt (TiState _ _ _ _ _)     _ _ = err $ "stepDt: wrong dump"
 
-primArith :: TiState -> (Int -> Int -> Int) -> TiState
-primArith (TiState stack@(_:_:_:_) dump heap globals stats) f
+primDyadic :: TiState -> (Node -> Node -> Node) -> TiState
+primDyadic (TiState stack@(_:_:_:_) dump heap globals stats) f
     | arg1IsDataNode && arg2IsDataNode = TiState ap2Stack dump heap' globals stats
-    | arg2IsDataNode = TiState [arg1Addr] (ap1Stack:dump) heap globals stats
-    | otherwise = TiState [arg2Addr] (ap2Stack:dump) heap globals stats
+    | arg2IsDataNode                   = TiState [arg1Addr] (ap1Stack:dump) heap globals stats
+    | otherwise                        = TiState [arg2Addr] (ap2Stack:dump) heap globals stats
     where
-        heap' = hUpdate heap rootAddr (NNb $ f v1 v2)
+        heap' = hUpdate heap rootAddr (f arg1 arg2)
         _:ap1Stack = stack
         _:ap2Stack = ap1Stack
         rootAddr:_ = ap2Stack
@@ -206,9 +237,64 @@ primArith (TiState stack@(_:_:_:_) dump heap globals stats) f
         arg2 = hLookup heap arg2Addr
         arg1IsDataNode = isDataNode arg1
         arg2IsDataNode = isDataNode arg2
-        NNb v1 = arg1
-        NNb v2 = arg2
-primArith _ _ = err "primArith: wrong stack detected"
+primDyadic _ _ = panic "primDyadic: wrong stack"
+
+primNeg :: TiState -> TiState
+primNeg (TiState stack@(_:_:_) dump heap globals stats) = 
+    case arg of
+    NNb v -> TiState negApStack dump (makeHeap v) globals stats
+    _
+        | isDataNode arg -> err "unexpected data type for unary negate operation"
+        | otherwise -> TiState [argAddr] (negApStack:dump) heap globals stats
+    where
+        _:negApStack@(rootAddr:_) = stack
+        makeHeap = hUpdate heap rootAddr . NNb . negate
+        argAddr:_ = getargs heap stack
+        arg = hLookup heap argAddr
+primNeg _ = err "negate: not enough args)"
+
+primArithm :: TiState -> (Int -> Int -> Int) -> TiState
+primArithm state f = primDyadic state nodeF
+    where
+        nodeF (NNb v1) (NNb v2) = NNb (f v1 v2)
+        nodeF _ _ = err "unexpected data type for binary arithmetic operation"
+
+primCons :: TiState -> Int -> Int -> TiState
+primCons (TiState stack dump heap globals stats) tag ar
+    | length stack >= ar + 1 = TiState stack' dump heap' globals stats
+    | otherwise              = panic "primCons: wrong stack"
+    where
+        stack'@(rootAddr:_) = drop ar stack
+        heap' = hUpdate heap rootAddr (NDt tag args)
+        args = take ar $ getargs heap stack
+
+primIf :: TiState -> TiState
+primIf (TiState stack@(_:_:_:_:_) dump heap globals stats) =
+    case cond of
+        NDt tag []
+            | tag == (tagBool False) -> TiState rootStack dump fHeap globals stats
+            | tag == (tagBool True)  -> TiState rootStack dump tHeap globals stats
+            | otherwise -> err $ "unknown type tag: " ++ (show tag)
+        _
+            | isDataNode cond -> err "unexpected data type for condition expression"
+            | otherwise -> TiState [condAddr] (ifApStack:dump) heap globals stats
+    where
+        tHeap = hUpdate heap rootAddr (NIn tAddr)
+        fHeap = hUpdate heap rootAddr (NIn fAddr)
+        _:ifApStack = stack
+        _:_:rootStack = ifApStack
+        rootAddr:_ = rootStack
+        condAddr:tAddr:fAddr:_ = getargs heap stack
+        cond = hLookup heap condAddr
+primIf _ = panic "primIf: wrong stack"
+
+primCmp :: TiState -> (Int -> Int -> Bool) -> TiState
+primCmp state p = primDyadic state nodeF
+    where
+        nodeF (NNb v1) (NNb v2)
+            | p v1 v2    = NDt (tagBool True)  []
+            | otherwise  = NDt (tagBool False) []
+        nodeF _ _ = err "unexpected data type for binary relational operation"
 
 getargs :: TiHeap -> TiStack -> [Addr]
 getargs heap (_:stack) = map getarg stack
@@ -234,18 +320,39 @@ instantiate (EVar v) heap env = (heap, addr)
     where addr = aLookup env v (err ("undefined name " ++ show v))
 
 instantiate (ELet isRec defs body) heap env = instantiate body heap' env'
-    where (heap', env') = foldl accum (heap, env) defs
-          accum (accHeap, accEnv) (var, expr) = 
-               let (accHeap', addr) = instantiate expr accHeap chosenEnv
-                   chosenEnv = if isRec then env' else env
-                   accEnv' = (var, addr) : accEnv
-               in (accHeap', accEnv')
+    where
+        (heap', defBindings) = mapAccuml allocateDef heap defs
+        allocateDef = instantiateDef (if isRec then env' else env)
+        env' = defBindings ++ env
 
-instantiate (ECons _ _) _ _ = notImplemented "Cons instantiation" 
+instantiate (ECons t ar) heap _ = (heap', addr)
+    where (heap', addr) = hAlloc heap (NPr kwCons (PrimCons t ar))
 
 instantiate (ECase _ _) _ _ = notImplemented "caseof instantiation"
 
 instantiate (ELam _ _) _ _ = notImplemented "lambda instantiation"
+
+instantiateDef :: TiGlobals -> TiHeap -> (Name, CoreExpr) -> (TiHeap, (Name, Addr))
+instantiateDef env heap (name, body) = (heap', (name, addr))
+    where (heap', addr) = instantiate body heap env
+
+
+instantiateAndUpdate :: CoreExpr -> Addr -> TiHeap -> TiGlobals -> TiHeap
+instantiateAndUpdate (EAp e1 e2) updateAddr heap env = hUpdate heap'' updateAddr (NAp a1 a2)
+    where (heap' , a1) = instantiate e1 heap  env
+          (heap'', a2) = instantiate e2 heap' env
+instantiateAndUpdate (ENum n) updateAddr heap env = hUpdate heap updateAddr (NNb n)
+instantiateAndUpdate (EVar v) updateAddr heap env = hUpdate heap updateAddr (NIn vAddr)
+    where vAddr = aLookup env v (err ("undefined name " ++ show v))
+instantiateAndUpdate (ECons tag arity) updateAddr heap env = heap'
+    where heap' = hUpdate heap updateAddr (NPr kwCons (PrimCons tag arity))
+instantiateAndUpdate (ELet isRec defs body) updateAddr heap env = instantiateAndUpdate body updateAddr heap' env' 
+    where
+        (heap', defBindings) = mapAccuml allocateDef heap defs
+        allocateDef = instantiateDef (if isRec then env' else env)
+        env' = defBindings ++ env
+        
+instantiateAndUpdate (ECase e alts) updateAddr heap env = notImplemented "caseof instantiation"
 
 
 -- Pretty print results
@@ -296,10 +403,14 @@ showNode (NAp a1 a2) =
     mconcat [ text "NAp ", showAddrD a1
             , space      , showAddrD a2
             ]
-showNode (NSc name _args _body) = text "NSc" <+> text name
+showNode (NSc name _ _) = text "NSc" <+> text name
 showNode (NNb n) = text "NNb" <+> int n
 showNode (NIn a) = text "NIn" <+> parens (showAddrD a)
 showNode (NPr _ prim) = text "NPr" <+> text (show prim)
+showNode (NDt t addrs)
+    | t == (tagBool False) = text $ show False
+    | t == (tagBool True ) = text $ show True
+    | otherwise = text "NDt" <+> text (show t) <+> text (aShowL addrs)
 
 showAddrD :: Addr -> Doc
 showAddrD addr = text $ aShow addr

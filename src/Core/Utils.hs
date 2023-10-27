@@ -1,6 +1,6 @@
 module Core.Utils where
 
-import Data.List (find)
+import Data.List (find, intercalate)
 
 -- Utils
 
@@ -32,6 +32,9 @@ aIsNull = (== aNull)
 
 aShow :: Addr -> String
 aShow a = "#" ++ show a
+
+aShowL :: [Addr] -> String
+aShowL addrs = "(" ++ (intercalate " " (map aShow addrs)) ++ ")"
 
 aLookup :: Eq a => [(a, b)] -> a -> b -> b
 aLookup lst k def = case mv of Nothing     -> def
